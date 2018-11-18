@@ -1,0 +1,50 @@
+function decision_exec() {
+    "${@}"
+}
+
+function decision_init() {
+    __DECISIONTAB_CONDS=("${@}")
+    __DECISIONTAB_RULES=()
+}
+
+function decision_make() {
+
+    function test_rule() {
+        for i in $(seq 0 $((${#__DECISIONTAB_CONDS[@]} - 1)))
+        do
+            case "${@:$((${i} + 1)):1}" in
+                -)
+                    continue
+                    ;;
+                "${!__DECISIONTAB_CONDS[${i}]}")
+                    continue
+                    ;;
+                *)
+                    return 1
+                    ;;
+            esac
+        done
+        return 0
+    }
+
+    for encoded_rule in "${__DECISIONTAB_RULES[@]}"
+    do
+        local rule=(${encoded_rule}) # TODO consider spaces
+        if test_rule "${rule[@]}"
+        then
+            local cmd=(${rule[@]:${#__DECISIONTAB_CONDS[@]}})
+            if [ ${#cmd[@]} -gt 0 ]
+            then
+                decision_exec "${cmd[@]}"
+                return ${?}
+            else
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+function decision_rule() {
+    __DECISIONTAB_RULES+=("${*}") # TODO consider spaces
+}
