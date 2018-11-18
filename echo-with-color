@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+function buffer() {
+    BUFFER="${BUFFER}${BUFFER:+ }${@}"
+}
+
+function buffer_with_color() {
+    [ "${1}" == "${COLOR}" ] && buffer "${2}" || buffer "${1:-${DEFAULT}}${2}"
+    [ "${1}" == "${DEFAULT}" ] && COLOR= || COLOR="${1}"
+}
+
+function help() {
+    echo -e "$(cat << EOF
+Usage:
+    ${0} [OPTION]... [--] [STRING]...
+
+Generic options:
+    -h          show help
+    -n          do not output the trailing new line
+
+Color options:
+    -0 STRING   output with default color (default)
+    -B STRING   output with bold blue (${BOLD_BLUE}sample${DEFAULT})
+    -C STRING   output with bold cyan (${BOLD_CYAN}sample${DEFAULT})
+    -G STRING   output with bold green (${BOLD_GREEN}sample${DEFAULT})
+    -K STRING   output with bold black (${BOLD_BLACK}sample${DEFAULT})
+    -M STRING   output with bold magenta (${BOLD_MAGENTA}sample${DEFAULT})
+    -R STRING   output with bold red (${BOLD_RED}sample${DEFAULT})
+    -W STRING   output with bold white (${BOLD_WHITE}sample${DEFAULT})
+    -Y STRING   output with bold yellow (${BOLD_YELLOW}sample${DEFAULT})
+    -b STRING   output with blue (${BLUE}sample${DEFAULT})
+    -c STRING   output with cyan (${CYAN}sample${DEFAULT})
+    -g STRING   output with green (${GREEN}sample${DEFAULT})
+    -k STRING   output with black (${BLACK}sample${DEFAULT})
+    -m STRING   output with magenta (${MAGENTA}sample${DEFAULT})
+    -r STRING   output with red (${RED}sample${DEFAULT})
+    -w STRING   output with white (${WHITE}sample${DEFAULT})
+    -y STRING   output with yellow (${YELLOW}sample${DEFAULT})
+EOF
+)"
+}
+
+DEFAULT="\033[0m"
+
+BLACK="\033[0;30m"
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+BLUE="\033[0;34m"
+MAGENTA="\033[0;35m"
+CYAN="\033[0;36m"
+WHITE="\033[0;37m"
+
+BOLD_BLACK="\033[1;30m"
+BOLD_RED="\033[1;31m"
+BOLD_GREEN="\033[1;32m"
+BOLD_YELLOW="\033[1;33m"
+BOLD_BLUE="\033[1;34m"
+BOLD_MAGENTA="\033[1;35m"
+BOLD_CYAN="\033[1;36m"
+BOLD_WHITE="\033[1;37m"
+
+BUFFER=
+COLOR=
+NO_NEWLINE=
+
+while getopts '0:B:C:G:K:M:R:W:Y:b:c:g:hk:m:nr:w:y:' OPT
+do
+    case "${OPT}" in
+        0)
+            buffer_with_color "" "${OPTARG}"
+            ;;
+        B)
+            buffer_with_color "${BOLD_BLUE}" "${OPTARG}"
+            ;;
+        C)
+            buffer_with_color "${BOLD_CYAN}" "${OPTARG}"
+            ;;
+        G)
+            buffer_with_color "${BOLD_GREEN}" "${OPTARG}"
+            ;;
+        K)
+            buffer_with_color "${BOLD_BLACK}" "${OPTARG}"
+            ;;
+        M)
+            buffer_with_color "${BOLD_MAGENTA}" "${OPTARG}"
+            ;;
+        R)
+            buffer_with_color "${BOLD_RED}" "${OPTARG}"
+            ;;
+        W)
+            buffer_with_color "${BOLD_WHITE}" "${OPTARG}"
+            ;;
+        Y)
+            buffer_with_color "${BOLD_YELLOW}" "${OPTARG}"
+            ;;
+        b)
+            buffer_with_color "${BLUE}" "${OPTARG}"
+            ;;
+        c)
+            buffer_with_color "${CYAN}" "${OPTARG}"
+            ;;
+        g)
+            buffer_with_color "${GREEN}" "${OPTARG}"
+            ;;
+        h)
+            help
+            exit 1
+            ;;
+        k)
+            buffer_with_color "${BLACK}" "${OPTARG}"
+            ;;
+        m)
+            buffer_with_color "${MAGENTA}" "${OPTARG}"
+            ;;
+        n)
+            NO_NEWLINE=yes
+            ;;
+        r)
+            buffer_with_color "${RED}" "${OPTARG}"
+            ;;
+        w)
+            buffer_with_color "${WHITE}" "${OPTARG}"
+            ;;
+        y)
+            buffer_with_color "${YELLOW}" "${OPTARG}"
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+done
+
+shift $(($OPTIND - 1))
+
+buffer "${@}"
+[ -n "${COLOR}" ] && BUFFER="${BUFFER}${DEFAULT}"
+echo -e ${NO_NEWLINE:+-n} "${BUFFER}"
