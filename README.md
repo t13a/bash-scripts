@@ -12,7 +12,7 @@ Example:
 
 ```sh
 $ cat << EOF > ./get-status.sh
-> #!/usrbin/env bash
+> #!/usr/bin/env bash
 >
 > source ./decisiontab
 >
