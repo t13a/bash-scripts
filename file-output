@@ -61,6 +61,13 @@ Miscellaneous Options:
 EOF
 }
 
+function ignore_contents() {
+    update_trap CONTENTS_FAILED_TO_READ
+    cat - > /dev/null
+    update_trap OK
+    update_result CONTENTS_IGNORED_TO_OVERWRITE
+}
+
 function print_error() {
     local file="$(relative_path "${FILE}")"
     local message="${ERROR_MESSAGES[${1}]}"
@@ -231,9 +238,7 @@ then
             force)
                 ;;
             ignore)
-                update_trap CONTENTS_FAILED_TO_READ
-                cat - > /dev/null
-                update_result CONTENTS_IGNORED_TO_OVERWRITE
+                ignore_contents
                 exit 0
                 ;;
             *)
