@@ -72,7 +72,7 @@ function print_error() {
     local file="$(relative_path "${FILE}")"
     local message="${ERROR_MESSAGES[${1}]}"
     local severity="${ERROR_SEVERITIES[${1}]}"
-    if which echo-with-color > /dev/null
+    if which echo-with-color > /dev/null 2>&1
     then
         if [ ${severity} -ge 100 ]
         then
