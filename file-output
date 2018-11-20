@@ -131,6 +131,7 @@ function write_contents() {
 declare -A ERROR_MESSAGES=(
   ["CONTENTS_ABORTED_TO_OVERWRITE"]="already exists"
   ["CONTENTS_CHANGED"]="changed"
+  ["CONTENTS_FAILED_TO_READ"]="failed to read from standard input"
   ["CONTENTS_FAILED_TO_WRITE"]="failed to write file"
   ["CONTENTS_IGNORED_TO_OVERWRITE"]="already exists, but ignored"
   ["FILE_CREATED"]="file created"
@@ -144,6 +145,7 @@ declare -A ERROR_MESSAGES=(
 declare -A ERROR_SEVERITIES=(
   ["CONTENTS_ABORTED_TO_OVERWRITE"]=100
   ["CONTENTS_CHANGED"]=12
+  ["CONTENTS_FAILED_TO_READ"]=100
   ["CONTENTS_FAILED_TO_WRITE"]=100
   ["CONTENTS_IGNORED_TO_OVERWRITE"]=1
   ["FILE_CREATED"]=13
@@ -229,6 +231,8 @@ then
             force)
                 ;;
             ignore)
+                update_trap CONTENTS_FAILED_TO_READ
+                cat - > /dev/null
                 update_result CONTENTS_IGNORED_TO_OVERWRITE
                 exit 0
                 ;;
