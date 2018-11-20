@@ -40,3 +40,22 @@ Example:
 $ ./echo-with-color -R hello -Y world -G with -C 3/4 -B bit -M color
 > hello world with 3/4 bit color # shown in each color
 ```
+
+### `file-output`
+
+A little flexible file output command. You can specify whether to append or replace, overwrite or not overwrite, etc. Also this outputs short and meaningful information.
+
+Example:
+
+```sh
+$ echo 'input' | ./file-output output.txt
+> output.txt: file created
+$ echo 'input' | ./file-output output.txt # no overwrite, and returns non-zero exit status
+> output.txt: already exists
+$ echo 'input' | ./file-output -n output.txt # no overwrite, but returns exit status of zero
+> output.txt: already exists, but ignored
+$ echo 'input' | ./file-output -f output.txt # overwrite, but not changed
+> output.txt: OK
+$ echo 'other input' | ./file-output -f output.txt # overwrite, and changed
+> output.txt: changed
+```

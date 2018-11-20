@@ -1,0 +1,252 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+function change_mode() {
+    if [ -n "${MODE}" ]
+    then
+        update_trap MODE_FAILED_TO_CHANGE
+        if chmod -c "${MODE}" "${FILE}" 2>&1 | grep -q '.'
+        then
+            update_result MODE_CHANGED
+        fi
+        update_trap OK
+    fi
+}
+
+function clear_trap() {
+    trap '' INT EXIT TERM
+}
+
+function create_file() {
+    if [ ! -e "${FILE}" ]
+    then
+        update_trap FILE_FAILED_TO_CREATE
+        touch "${FILE}"
+        update_result FILE_CREATED
+        update_trap OK
+    fi
+}
+
+function create_parents() {
+    if [ ! -e "$(dirname "${FILE}")" ]
+    then
+        update_trap PARENTS_FAILED_TO_CREATE
+        mkdir -p "$(dirname "${FILE}")"
+        update_result PARENTS_CREATED
+        update_trap OK
+    fi
+}
+
+function help() {
+    cat << EOF >&2
+Usage:
+    ${0} [OPTION]... [--] FILE
+
+Write Options:
+    -A          append
+    -N          do not write any contents
+    -R          replace (default)
+
+Overwrite Options:
+    -a          abort if already file exists (default)
+    -f          overwrite
+    -n          do not overwrite
+
+Miscellaneous Options:
+    -c          do not create any files
+    -h          show help
+    -m MODE     set file mode
+    -p          create parent directories
+EOF
+}
+
+function print_error() {
+    local file="$(relative_path "${FILE}")"
+    local message="${ERROR_MESSAGES[${1}]}"
+    local severity="${ERROR_SEVERITIES[${1}]}"
+    if which echo-with-color > /dev/null
+    then
+        if [ ${severity} -ge 100 ]
+        then
+            echo-with-color -0 "${file}:" -R "${message}" >&2
+        elif [ ${severity} -ge 10 ]
+        then
+            echo-with-color -0 "${file}:" -Y "${message}" >&2
+        else
+            echo-with-color -0 "${file}:" -G "${message}" >&2
+        fi
+    else
+        echo "${file}: ${message}" >&2
+    fi
+}
+
+function print_result() {
+    print_error "${RESULT}"
+}
+
+function relative_path() {
+    realpath -ms "--relative-to=$(pwd)" "${1}"
+}
+
+function update_result() {
+    local cur_severity="${ERROR_SEVERITIES[${RESULT}]}"
+    local new_severity="${ERROR_SEVERITIES[${1}]}"
+    if [ ${cur_severity} -lt ${new_severity} ]
+    then
+        RESULT="${1}"
+    fi
+}
+
+function update_trap() {
+    trap "update_result '${1}'; print_result" INT EXIT TERM
+}
+
+function write_contents() {
+    update_trap CONTENTS_FAILED_TO_WRITE
+    local old_checksum="$(sha256sum "${FILE}")"
+    case "${WRITE_POLICY}" in
+        append)
+            cat - >> "${FILE}"
+            ;;
+        no-write)
+            ;;
+        replace)
+            cat - > "${FILE}"
+            ;;
+        *)
+            clear_trap
+            echo "${WRITE_POLICY}: invalid write policy" >&2
+            exit 1
+            ;;
+    esac
+    local new_checksum="$(sha256sum "${FILE}")"
+    if [ "${old_checksum}" != "${new_checksum}" ]
+    then
+        update_result CONTENTS_CHANGED
+    fi
+    update_trap OK
+}
+
+declare -A ERROR_MESSAGES=(
+  ["CONTENTS_ABORTED_TO_OVERWRITE"]="already exists"
+  ["CONTENTS_CHANGED"]="changed"
+  ["CONTENTS_FAILED_TO_WRITE"]="failed to write file"
+  ["CONTENTS_IGNORED_TO_OVERWRITE"]="already exists, but ignored"
+  ["FILE_CREATED"]="file created"
+  ["FILE_FAILED_TO_CREATE"]="failed to create file"
+  ["MODE_CHANGED"]="mode changed"
+  ["MODE_FAILED_TO_CHANGED"]="failed to change mode"
+  ["OK"]="OK"
+  ["PARENTS_CREATED"]="parent directories created"
+  ["PARENTS_FAILED_TO_CREATE"]="failed to create parent directories"
+)
+declare -A ERROR_SEVERITIES=(
+  ["CONTENTS_ABORTED_TO_OVERWRITE"]=100
+  ["CONTENTS_CHANGED"]=12
+  ["CONTENTS_FAILED_TO_WRITE"]=100
+  ["CONTENTS_IGNORED_TO_OVERWRITE"]=1
+  ["FILE_CREATED"]=13
+  ["FILE_FAILED_TO_CREATE"]=100
+  ["MODE_CHANGED"]=11
+  ["MODE_FAILED_TO_CHANGED"]=100
+  ["OK"]=0
+  ["PARENTS_CREATED"]=20
+  ["PARENTS_FAILED_TO_CREATE"]=100
+)
+
+CREATE_FILE=yes
+CREATE_PARENTS=
+FILE=
+MODE=
+OVERWRITE_POLICY=abort
+RESULT=OK
+WRITE_POLICY=replace
+
+while getopts 'ANRacfhm:np' OPT
+do
+    case "${OPT}" in
+        A)
+            WRITE_POLICY=append
+            ;;
+        N)
+            WRITE_POLICY=no-write
+            ;;
+        R)
+            WRITE_POLICY=replace
+            ;;
+        a)
+            OVERWRITE_POLICY=abort
+            ;;
+        c)
+            CREATE_FILE=
+            ;;
+        f)
+            OVERWRITE_POLICY=force
+            ;;
+        h)
+            help
+            exit 1
+            ;;
+        m)
+            MODE="${OPTARG}"
+            ;;
+        n)
+            OVERWRITE_POLICY=ignore
+            ;;
+        p)
+            CREATE_PARENTS=yes
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+done
+
+shift $(($OPTIND - 1))
+
+if [ ${#@} -ne 1 ]
+then
+    help
+    exit 1
+fi
+
+FILE="${1}"
+
+update_trap OK
+
+if [ -e "${FILE}" ]
+then
+    change_mode
+
+    if [ "${WRITE_POLICY}" == replace ]
+    then
+        case "${OVERWRITE_POLICY}" in
+            abort)
+                update_result CONTENTS_ABORTED_TO_OVERWRITE
+                exit 1
+                ;;
+            force)
+                ;;
+            ignore)
+                update_result CONTENTS_IGNORED_TO_OVERWRITE
+                exit 0
+                ;;
+            *)
+                clear_trap
+                echo "${OVERWRITE_POLICY}: invalid overwrite policy" >&2
+                exit 1
+                ;;
+        esac
+    fi
+else
+    if [ -n "${CREATE_FILE}" ]
+    then
+        [ -n "${CREATE_PARENTS}" ] && create_parents
+        create_file
+    fi
+
+    change_mode
+fi
+
+write_contents
